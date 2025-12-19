@@ -24,30 +24,38 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 function Enable-CaseSensitiveForDir {
     param ([string]$dirPath)
 
-    Write-Host "正在处理: $dirPath" -ForegroundColor Cyan
-
     # 1. 先递归处理所有子目录 (深度优先)
     Get-ChildItem -Path $dirPath -Directory -Force | ForEach-Object {
         Enable-CaseSensitiveForDir $_.FullName
     }
 
-    # 2. 处理当前目录
-    $tempDir = $dirPath + "_tempbak"
-    $hasContent = (Get-ChildItem -Path $dirPath -Force).Count -gt 0
+    Write-Host "正在处理: $dirPath" -ForegroundColor Cyan
 
-    if ($hasContent) {
-        # 移动所有内容到临时目录
-        if (!(Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir -Force | Out-Null }
-        Get-ChildItem -Path $dirPath -Force | Move-Item -Destination $tempDir -Force
-    }
+    # 检查当前目录是否已经开启大小写敏感
+    $status = fsutil.exe file queryCaseSensitiveInfo "$dirPath"
+    if ($status -match "已启用" -or $status -match "enabled") {
+        Write-Host "跳过（已启用）: $dirPath" -ForegroundColor Gray
+    } else {
 
-    # 3. 开启大小写敏感
-    fsutil.exe file setCaseSensitiveInfo "$dirPath" enable
+        # 2. 处理当前目录
+        $tempDir = $dirPath + "_tempbak"
+        $hasContent = (Get-ChildItem -Path $dirPath -Force).Count -gt 0
 
-    if ($hasContent) {
-        # 移回内容
-        Get-ChildItem -Path $tempDir -Force | Move-Item -Destination $dirPath -Force
-        Remove-Item $tempDir -Force -Recurse
+        if ($hasContent) {
+            # 移动所有内容到临时目录
+            if (!(Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir -Force | Out-Null }
+            Get-ChildItem -Path $dirPath -Force | Move-Item -Destination $tempDir -Force
+        }
+
+        # 3. 开启大小写敏感
+        fsutil.exe file setCaseSensitiveInfo "$dirPath" enable
+
+        if ($hasContent) {
+            # 移回内容
+            Get-ChildItem -Path $tempDir -Force | Move-Item -Destination $dirPath -Force
+            Remove-Item $tempDir -Force -Recurse
+        }
+
     }
 }
 
