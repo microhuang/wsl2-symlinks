@@ -12,6 +12,12 @@ param (
     [string]$TargetDir
 )
 
+# 检查输入参数是否为空或路径是否存在
+if ([string]::IsNullOrWhiteSpace($TargetDir) -or !(Test-Path $TargetDir)) {
+    Write-Error "错误：路径 '$TargetDir' 不存在或为空！"
+    exit
+}
+
 # 获取绝对路径
 $rootPath = (Resolve-Path $TargetDir).Path
 
